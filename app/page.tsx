@@ -169,7 +169,7 @@ export default function ReservationPage() {
 
       {/* Title */}
       <h1 className="text-3xl font-bold text-center tracking-wide text-[#2E4F3D] mb-6">
-        Danh sách Bàn – Nhà hàng Lẩu Đà Lạt
+        Danh sách Bàn 
       </h1>
 
       {/* Date filter */}
