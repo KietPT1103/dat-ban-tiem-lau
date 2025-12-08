@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
@@ -19,10 +21,10 @@ export async function GET() {
     const batch2 = adminDb.batch();
 
     for (let i = 1; i <= 50; i++) {
-      const docRef = tablesRef.doc(); // Firestore tự tạo ID
+      const docRef = tablesRef.doc();
       batch2.set(docRef, {
         name: `Bàn ${i}`,
-        capacity: i <= 10 ? 2 : i <= 30 ? 4 : 6,   // tuỳ bạn muốn điều chỉnh
+        capacity: i <= 10 ? 2 : i <= 30 ? 4 : 6,
         createdAt: new Date(),
       });
     }
@@ -33,7 +35,6 @@ export async function GET() {
       success: true,
       message: "Đã tạo mới 50 bàn theo thứ tự.",
     });
-
   } catch (error) {
     console.error("RESET TABLES ERROR:", error);
     return NextResponse.json(
