@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase-client";
+import { adminDb } from "@/lib/firebase-admin";
 import { collection, getDocs } from "firebase/firestore";
 import type { ReservationItem, Table } from "@/types/reservation";
 
@@ -18,9 +18,8 @@ interface ReservationDoc {
 
 export async function GET() {
   // Lấy danh sách bàn
-  const tablesSnap = await getDocs(collection(db, "tables"));
-  // Lấy danh sách đặt bàn
-  const reservationsSnap = await getDocs(collection(db, "reservations"));
+  const tablesSnap = await adminDb.collection("tables").get();
+  const reservationsSnap = await adminDb.collection("reservations").get();
 
   // Chuẩn hoá reservation
   const reservations: ReservationItem[] = reservationsSnap.docs.map((doc) => {
