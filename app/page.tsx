@@ -11,6 +11,9 @@ export default function ReservationPage() {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [filterDate, setFilterDate] = useState<string>("");
 
+  const [showReservationsPopup, setShowReservationsPopup] = useState(false);
+  const [showCreatePopup, setShowCreatePopup] = useState(false);
+
   const [form, setForm] = useState<ReservationForm>({
     customerName: "",
     phone: "",
@@ -18,18 +21,18 @@ export default function ReservationPage() {
     reservationTime: "",
   });
 
-  const [errors, setErrors] = useState({
-    customerName: "",
-    phone: "",
-    guestCount: "",
-    reservationTime: "",
-  });
-
   useEffect(() => {
     fetch("/api/tables")
       .then((res) => res.json())
       .then((data: Table[]) => {
-        setTables(data);
+        // Sort bàn theo số trong name
+        const sorted = data.sort((a, b) => {
+          const numA = parseInt(a.name.replace("Bàn ", ""));
+          const numB = parseInt(b.name.replace("Bàn ", ""));
+          return numA - numB;
+        });
+
+        setTables(sorted);
         setLoading(false);
       });
   }, []);
@@ -51,7 +54,12 @@ export default function ReservationPage() {
 
   const openPopup = (table: Table) => {
     setSelectedTable(table);
-    setShowPopup(true);
+
+    if (!table.reservations || table.reservations.length === 0) {
+      setShowCreatePopup(true);
+    } else {
+      setShowReservationsPopup(true);
+    }
   };
 
   const closePopup = () => {
@@ -79,62 +87,8 @@ export default function ReservationPage() {
       )
     : tables;
 
-  const validateForm = () => {
-    const newErrors = {
-      customerName: "",
-      phone: "",
-      guestCount: "",
-      reservationTime: "",
-    };
-
-    if (!form.customerName.trim()) {
-      newErrors.customerName = "Vui lòng nhập họ tên";
-    }
-
-    if (!form.phone.trim()) {
-      newErrors.phone = "Vui lòng nhập số điện thoại";
-    } else if (!/^0\d{9}$/.test(form.phone)) {
-      newErrors.phone = "Số điện thoại không hợp lệ (10 số)";
-    }
-
-    if (form.guestCount < 1) {
-      newErrors.guestCount = "Số lượng khách phải ≥ 1";
-    }
-
-    if (!form.reservationTime) {
-      newErrors.reservationTime = "Vui lòng chọn ngày giờ";
-    } else if (new Date(form.reservationTime) < new Date()) {
-      newErrors.reservationTime = "Không được chọn thời gian trong quá khứ";
-    }
-
-    if (selectedTable?.reservations?.length) {
-      const selectedTime = new Date(form.reservationTime).getTime();
-
-      for (const booking of selectedTable.reservations) {
-        const existing = new Date(booking.reservationTime).getTime();
-
-        const diffHours = Math.abs(selectedTime - existing) / (1000 * 60 * 60);
-
-        if (diffHours < 3) {
-          newErrors.reservationTime =
-            "Khung giờ này đã có người đặt, vui lòng chọn thời gian cách ít nhất 3 tiếng hoặc chọn bàn khác.";
-          break;
-        }
-      }
-    }
-
-    setErrors(newErrors);
-
-    // Kiểm tra nếu có error → return false
-    return Object.values(newErrors).every((e) => e === "");
-  };
-
   const submit = async () => {
     if (!selectedTable) return;
-
-    if (!validateForm()) {
-      return;
-    }
     const payload = {
       tableId: selectedTable.id,
       ...form,
@@ -147,29 +101,74 @@ export default function ReservationPage() {
     const data = await res.json();
     if (data.success) {
       alert("Đặt bàn thành công!");
+      fetch("/api/tables")
+        .then((res) => res.json())
+        .then((tablesData) => {
+          // Sort lại
+          const sorted = tablesData.sort((a: Table, b: Table) => {
+            const numA = parseInt(a.name.replace("Bàn ", ""));
+            const numB = parseInt(b.name.replace("Bàn ", ""));
+            return numA - numB;
+          });
+
+          setTables(sorted);
+        });
+
       closePopup();
+      setShowCreatePopup(false);
     } else {
       alert("Lỗi khi đặt bàn");
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#F6F5F1] bg-[url('/images/forest-texture.png')] bg-fixed bg-cover px-4 py-6 sm:p-8">
-      {/* Logo */}
-      <div className="flex justify-center mt-2 mb-8">
-        <img
-          src="/images/logo.jpg"
-          alt="logo"
-          className="
-          rounded-full w-32 h-32 border-4 border-white
-          shadow-[0_5px_20px_rgba(0,0,0,0.2)]
-        "
-        />
-      </div>
+  const deleteReservation = async (
+    reservationId: string,
+    customerName: string
+  ) => {
+    if (!confirm(`Bạn có chắc muốn huỷ đặt bàn của khách: "${customerName}" ?`))
+      return;
 
+    const res = await fetch("/api/reservations", {
+      method: "DELETE",
+      body: JSON.stringify({ id: reservationId }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert(`Đã xoá đặt bàn của "${customerName}" thành công!`);
+
+      // Cập nhật selectedTable local
+      setSelectedTable({
+        ...selectedTable!,
+        reservations: (selectedTable?.reservations ?? []).filter(
+          (r) => r.id !== reservationId
+        ),
+      });
+
+      // Reload lại bảng
+      fetch("/api/tables")
+        .then((res) => res.json())
+        .then((tablesData) => {
+          // Sort lại
+          const sorted = tablesData.sort((a: Table, b: Table) => {
+            const numA = parseInt(a.name.replace("Bàn ", ""));
+            const numB = parseInt(b.name.replace("Bàn ", ""));
+            return numA - numB;
+          });
+
+          setTables(sorted);
+        });
+    } else {
+      alert("Không thể xoá, vui lòng thử lại.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F6F5F1] bg-fixed bg-cover px-4 py-6 sm:p-8">
       {/* Title */}
       <h1 className="text-3xl font-bold text-center tracking-wide text-[#2E4F3D] mb-6">
-        Danh sách Bàn 
+        Danh sách Bàn
       </h1>
 
       {/* Date filter */}
@@ -194,13 +193,13 @@ export default function ReservationPage() {
       {loading ? (
         <p className="text-center text-gray-600">Đang tải danh sách bàn...</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-5">
           {filteredTables.map((table) => (
             <div
               key={table.id}
               onClick={() => openPopup(table)}
               className="
-              animate-fadeIn p-5 rounded-2xl
+              animate-fadeIn p-3 rounded-2xl
               bg-white/90 backdrop-blur-sm
               border border-[#DDE5E1]
               shadow-md hover:shadow-xl
@@ -209,11 +208,9 @@ export default function ReservationPage() {
             "
             >
               <p className="font-bold text-lg text-[#2E4F3D]">{table.name}</p>
-              <p className="text-sm text-gray-600">{table.capacity} ghế</p>
-
-              {table.reservationCount > 0 && (
+              {(table.reservationCount ?? 0) > 0 && (
                 <p className="text-xs text-red-600 font-semibold mt-2">
-                  {table.reservationCount} lượt đặt trước
+                  {table.reservationCount} lượt
                 </p>
               )}
             </div>
@@ -222,32 +219,80 @@ export default function ReservationPage() {
       )}
 
       {/* Popup */}
-      {showPopup && selectedTable && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center p-4 z-50 animate-fadeIn">
-          <div className="bg-[#FAF9F7] rounded-2xl shadow-2xl w-full max-w-sm p-6 border border-[#E5E5E5] animate-scaleFade">
-            <h2 className="text-2xl font-bold mb-4 text-center text-[#2E4F3D] tracking-wide">
-              Đặt bàn: {selectedTable.name}
+      {showReservationsPopup && selectedTable && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-sm animate-scaleFade">
+            {/* TITLE */}
+            <h2 className="text-2xl font-bold text-[#2E4F3D] mb-4 text-center tracking-wide">
+              Đặt bàn – {selectedTable.name}
             </h2>
 
-            {/* Existing reservations */}
-            {selectedTable.reservations?.length > 0 && (
-              <div className="bg-[#E8F0EB] rounded-lg p-3 mb-4 border border-[#C8D6CD]">
-                <p className="font-semibold text-[#2E4F3D] text-sm mb-1">
-                  Các khách đã đặt:
-                </p>
-
-                {selectedTable.reservations.map((r, index) => (
-                  <div key={index} className="text-sm text-gray-800 mb-1">
-                    <span className="font-bold text-[#354F39]">
-                      {r.customerName}
-                    </span>{" "}
-                    {new Date(r.reservationTime).toLocaleString("vi-VN")}
-                  </div>
-                ))}
+            {/* NO RESERVATION */}
+            {(selectedTable.reservations?.length ?? 0) === 0 && (
+              <div className="text-center text-gray-500 py-6 text-sm">
+                Chưa có khách nào đặt bàn này.
               </div>
             )}
 
-            {/* Form */}
+            {/* LIST */}
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {selectedTable.reservations?.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex justify-between items-center bg-[#F2F5F3] border border-[#DDE5E1] p-3 rounded-lg shadow-sm hover:shadow-md transition"
+                >
+                  <div>
+                    <p className="font-semibold text-[#354F39] text-sm">
+                      {r.customerName}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      {new Date(r.reservationTime).toLocaleString("vi-VN")}
+                    </p>
+                  </div>
+
+                  {/* icon Delete */}
+                  <button
+                    onClick={() => deleteReservation(r.id, r.customerName)}
+                    className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition"
+                    title="Xoá đặt bàn"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* BUTTONS */}
+            <div className="mt-6 flex justify-between gap-3">
+              <button
+                onClick={() => {
+                  setShowReservationsPopup(false);
+                  setShowCreatePopup(true);
+                }}
+                className="flex-1 bg-[#52796F] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#395B50] shadow transition"
+              >
+                + Tạo mới
+              </button>
+
+              <button
+                onClick={() => setShowReservationsPopup(false)}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300 shadow transition"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreatePopup && selectedTable && (
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-sm">
+            <h2 className="text-xl font-bold text-[#2E4F3D] mb-4">
+              Tạo đặt bàn – {selectedTable.name}
+            </h2>
+
+            {/* Form như cũ */}
             <div className="space-y-3">
               {/* Name */}
               <div>
@@ -262,11 +307,6 @@ export default function ReservationPage() {
                     setForm({ ...form, customerName: e.target.value })
                   }
                 />
-                {errors.customerName && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.customerName}
-                  </p>
-                )}
               </div>
 
               {/* Phone */}
@@ -280,9 +320,6 @@ export default function ReservationPage() {
                 "
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
-                {errors.phone && (
-                  <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
-                )}
               </div>
 
               {/* Guests */}
@@ -300,11 +337,6 @@ export default function ReservationPage() {
                     setForm({ ...form, guestCount: Number(e.target.value) })
                   }
                 />
-                {errors.guestCount && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.guestCount}
-                  </p>
-                )}
               </div>
 
               {/* Time */}
@@ -321,34 +353,21 @@ export default function ReservationPage() {
                     setForm({ ...form, reservationTime: e.target.value })
                   }
                 />
-                {errors.reservationTime && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.reservationTime}
-                  </p>
-                )}
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="mt-5 space-y-2">
+            <div className="flex items-center justify-between mt-4 gap-2">
+              <button
+                onClick={() => setShowCreatePopup(false)}
+                className="w-full bg-gray-300 p-3 rounded-lg"
+              >
+                Đóng
+              </button>
               <button
                 onClick={submit}
-                className="
-                w-full bg-[#52796F] text-white p-3 rounded-lg font-semibold 
-                hover:bg-[#395B50] transition shadow-md
-              "
+                className="w-full bg-[#52796F] text-white p-3 rounded-lg font-semibold"
               >
-                Xác nhận đặt bàn
-              </button>
-
-              <button
-                onClick={closePopup}
-                className="
-                w-full bg-gray-200 text-gray-700 p-3 rounded-lg 
-                hover:bg-gray-300 transition
-              "
-              >
-                Hủy
+                Xác nhận
               </button>
             </div>
           </div>
