@@ -198,18 +198,21 @@ export default function ReservationPage() {
             <div
               key={table.id}
               onClick={() => openPopup(table)}
-              className="
-              animate-fadeIn p-3 rounded-2xl
-              bg-white/90 backdrop-blur-sm
-              border border-[#DDE5E1]
-              shadow-md hover:shadow-xl
-              transition cursor-pointer text-center
-              hover:-translate-y-1 hover:scale-[1.03]
-            "
+              className={`
+                animate-fadeIn p-3 rounded-2xl
+                backdrop-blur-sm border border-[#DDE5E1]
+                shadow-md hover:shadow-xl transition cursor-pointer text-center
+                hover:-translate-y-1 hover:scale-[1.03]
+                ${
+                  (table.reservationCount ?? 0) > 0
+                    ? "bg-[#25466f] text-white"
+                    : ""
+                }
+              `}
             >
-              <p className="font-bold text-lg text-[#2E4F3D]">{table.name}</p>
+              <p className="font-bold text-lg">{table.name}</p>
               {(table.reservationCount ?? 0) > 0 && (
-                <p className="text-xs text-red-600 font-semibold mt-2">
+                <p className="text-xs font-semibold mt-2 text-red-600 border border-red-400 rounded-full px-2 py-[2px] bg-red-50 shadow-sm">
                   {table.reservationCount} lượt
                 </p>
               )}
@@ -243,11 +246,16 @@ export default function ReservationPage() {
                 >
                   <div>
                     <p className="font-semibold text-[#354F39] text-sm">
-                      {r.customerName}
+                      {r.customerName} - {r.phone}
                     </p>
                     <p className="text-xs text-gray-600 mt-0.5">
                       {new Date(r.reservationTime).toLocaleString("vi-VN")}
                     </p>
+                    {r.note && (
+                      <p className="text-xs text-gray-500 mt-1 italic">
+                        Ghi chú: {r.note}
+                      </p>
+                    )}
                   </div>
 
                   {/* icon Delete */}
@@ -352,6 +360,19 @@ export default function ReservationPage() {
                   onChange={(e) =>
                     setForm({ ...form, reservationTime: e.target.value })
                   }
+                />
+              </div>
+
+              {/* Note */}
+              <div>
+                <textarea
+                  placeholder="Ghi chú"
+                  className="
+                    w-full border border-[#D3DCD2] rounded-xl p-3 text-sm
+                    focus:ring-2 focus:ring-[#52796F] focus:border-[#52796F]
+                    bg-white shadow-inner
+                    "
+                  onChange={(e) => setForm({ ...form, note: e.target.value })}
                 />
               </div>
             </div>

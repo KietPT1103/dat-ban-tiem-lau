@@ -22,7 +22,7 @@ export async function GET() {
     // 2) TẠO 50 BÀN MỚI
     const batch2 = adminDb.batch();
 
-    for (let i = 1; i <= 50; i++) {
+    for (let i = 1; i <= 60; i++) {
       const docRef = tablesRef.doc();
       batch2.set(docRef, {
         name: `Bàn ${i}`,

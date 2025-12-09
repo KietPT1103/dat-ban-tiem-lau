@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     phone: data.phone,
     guestCount: data.guestCount,
     reservationTime: new Date(data.reservationTime),
+    note: data.note ?? "", 
     createdAt: new Date(),
   });
 

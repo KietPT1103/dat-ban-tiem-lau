@@ -9,6 +9,7 @@ export interface ReservationForm {
   phone: string;
   guestCount: number;
   reservationTime: string;
+  note?: string;
 }
 
 export interface Reservation extends ReservationForm {
@@ -22,6 +23,7 @@ export interface ReservationItem {
   guestCount: number;
   reservationTime: string;
   tableId: string;
+  note?: string;
 }
 
 export interface Table {
