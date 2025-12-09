@@ -180,6 +180,7 @@ export default function ReservationPage() {
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
+            placeholder="Tìm theo ngày"
             className="
             w-full px-4 py-3
             rounded-xl border border-[#CAD2C5] bg-white shadow-sm
@@ -363,6 +364,7 @@ export default function ReservationPage() {
                 <input
                   type="datetime-local"
                   min={getMinDateTime()}
+                  placeholder="Ngày và giờ đặt"
                   className="
                   w-full border border-[#D3DCD2] rounded-xl p-3 text-sm
                   focus:ring-2 focus:ring-[#52796F] focus:border-[#52796F]
