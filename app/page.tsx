@@ -284,7 +284,7 @@ export default function ReservationPage() {
 
             {/* BUTTONS */}
             <div className="mt-6 flex justify-between gap-3">
-              <button
+              {/* <button
                 onClick={() => {
                   setShowReservationsPopup(false);
                   setShowCreatePopup(true);
@@ -292,7 +292,7 @@ export default function ReservationPage() {
                 className="flex-1 bg-[#52796F] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#395B50] shadow transition"
               >
                 + Tạo mới
-              </button>
+              </button> */}
 
               <button
                 onClick={() => setShowReservationsPopup(false)}
