@@ -19,6 +19,7 @@ export default function ReservationPage() {
     phone: "",
     guestCount: 2,
     reservationTime: "",
+    note: "",
   });
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function ReservationPage() {
 
   const openPopup = (table: Table) => {
     setSelectedTable(table);
-
+    console.log(table);
     if (!table.reservations || table.reservations.length === 0) {
       setShowCreatePopup(true);
     } else {
@@ -70,6 +71,7 @@ export default function ReservationPage() {
       phone: "",
       guestCount: 2,
       reservationTime: "",
+      note: "",
     });
   };
 
@@ -187,6 +189,15 @@ export default function ReservationPage() {
           "
           />
         </div>
+        {filterDate && (
+          <button
+            onClick={() => setFilterDate("")}
+            className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition"
+            title="Clear date"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Loading */}

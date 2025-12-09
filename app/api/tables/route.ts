@@ -18,6 +18,7 @@ interface ReservationDoc {
   phone: string;
   guestCount: number;
   reservationTime?: { seconds: number };
+  note?: string;
 }
 
 export async function GET() {
@@ -36,8 +37,9 @@ export async function GET() {
       phone: raw.phone ?? "",
       guestCount: raw.guestCount ?? 0,
       reservationTime: raw.reservationTime?.seconds
-        ? new Date(raw.reservationTime.seconds * 1000).toISOString()
-        : "",
+      ? new Date(raw.reservationTime.seconds * 1000).toISOString()
+      : "",
+      note: raw.note ?? "",
     };
   });
 
