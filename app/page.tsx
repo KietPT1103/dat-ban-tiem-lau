@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Table, ReservationForm } from "@/types/reservation";
+import DatePicker from "react-datepicker";
 
 export default function ReservationPage() {
   const [tables, setTables] = useState<Table[]>([]);
@@ -13,7 +14,7 @@ export default function ReservationPage() {
 
   const [showReservationsPopup, setShowReservationsPopup] = useState(false);
   const [showCreatePopup, setShowCreatePopup] = useState(false);
-
+  const [dateTime, setDateTime] = useState<Date | null>(null);
   const [form, setForm] = useState<ReservationForm>({
     customerName: "",
     phone: "",
@@ -21,6 +22,42 @@ export default function ReservationPage() {
     reservationTime: "",
     note: "",
   });
+  const [errors, setErrors] = useState({
+    reservationTime: "",
+  });
+
+  const validateForm = () => {
+    const newErrors = {
+      reservationTime: "",
+    };
+
+    if (!form.reservationTime) {
+      newErrors.reservationTime = "Vui lòng chọn ngày giờ";
+    } else if (new Date(form.reservationTime) < new Date()) {
+      newErrors.reservationTime = "Không được chọn thời gian trong quá khứ";
+    }
+
+    if (selectedTable?.reservations?.length) {
+      const selectedTime = new Date(form.reservationTime).getTime();
+
+      for (const booking of selectedTable.reservations) {
+        const existing = new Date(booking.reservationTime).getTime();
+
+        const diffHours = Math.abs(selectedTime - existing) / (1000 * 60 * 60);
+
+        if (diffHours < 5) {
+          newErrors.reservationTime =
+            "Khung giờ này đã có người đặt, vui lòng chọn thời gian cách ít nhất 5 tiếng hoặc chọn bàn khác.";
+          break;
+        }
+      }
+    }
+
+    setErrors(newErrors);
+
+    // Kiểm tra nếu có error → return false
+    return Object.values(newErrors).every((e) => e === "");
+  };
 
   useEffect(() => {
     fetch("/api/tables")
@@ -43,7 +80,6 @@ export default function ReservationPage() {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const date = yesterday.toISOString().slice(0, 10);
-      console.log("Cleaning table...");
       await fetch("/api/reservations", {
         method: "DELETE",
         body: JSON.stringify({ date }),
@@ -55,7 +91,6 @@ export default function ReservationPage() {
 
   const openPopup = (table: Table) => {
     setSelectedTable(table);
-    console.log(table);
     if (!table.reservations || table.reservations.length === 0) {
       setShowCreatePopup(true);
     } else {
@@ -75,22 +110,38 @@ export default function ReservationPage() {
     });
   };
 
-  const getMinDateTime = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // fix lệch múi giờ
-    return now.toISOString().slice(0, 16);
+  const getLocalDate = (str: string) => {
+    const d = new Date(str);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  };
+
+  const toLocalDate = (str: string) => {
+    if (!str) return null;
+    const [y, m, d] = str.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const formatYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   };
 
   const filteredTables = filterDate
     ? tables.filter((table) =>
         table.reservations?.some(
-          (r) => r.reservationTime.slice(0, 10) === filterDate
+          (r) => getLocalDate(r.reservationTime) === filterDate
         )
       )
     : tables;
 
   const submit = async () => {
     if (!selectedTable) return;
+    if (!validateForm()) {
+      return;
+    }
     const payload = {
       tableId: selectedTable.id,
       ...form,
@@ -176,20 +227,23 @@ export default function ReservationPage() {
       {/* Date filter */}
       <div className="flex justify-center mb-6">
         <div className="relative w-full max-w-xs">
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            placeholder="Tìm theo ngày"
+          <DatePicker
+            selected={filterDate ? toLocalDate(filterDate) : null}
+            onChange={(date) => {
+              if (!date) {
+                setFilterDate("");
+              } else {
+                setFilterDate(formatYMD(date));
+              }
+            }}
+            placeholderText="Tìm theo ngày"
+            dateFormat="yyyy-MM-dd"
             className="
-            w-full px-4 py-3
-            rounded-xl border border-[#CAD2C5] bg-white shadow-sm
-            text-gray-700 text-sm
-            focus:ring-2 focus:ring-[#52796F] focus:border-[#52796F]
-            transition
-          "
+              w-full px-4 py-3 border rounded-xl bg-white shadow-sm
+            "
           />
         </div>
+
         {filterDate && (
           <button
             onClick={() => setFilterDate("")}
@@ -251,40 +305,47 @@ export default function ReservationPage() {
 
             {/* LIST */}
             <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-              {selectedTable.reservations?.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex justify-between items-center bg-[#F2F5F3] border border-[#DDE5E1] p-3 rounded-lg shadow-sm hover:shadow-md transition"
-                >
-                  <div>
-                    <p className="font-semibold text-[#354F39] text-sm">
-                      {r.customerName} - {r.phone}
-                    </p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      {new Date(r.reservationTime).toLocaleString("vi-VN")}
-                    </p>
-                    {r.note && (
-                      <p className="text-xs text-gray-500 mt-1 italic">
-                        Ghi chú: {r.note}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* icon Delete */}
-                  <button
-                    onClick={() => deleteReservation(r.id, r.customerName)}
-                    className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition"
-                    title="Xoá đặt bàn"
+              {selectedTable.reservations
+                ?.slice()
+                .sort(
+                  (a, b) =>
+                    new Date(a.reservationTime).getTime() -
+                    new Date(b.reservationTime).getTime()
+                )
+                .map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex justify-between items-center bg-[#F2F5F3] border border-[#DDE5E1] p-3 rounded-lg shadow-sm hover:shadow-md transition"
                   >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    <div>
+                      <p className="font-semibold text-[#354F39] text-sm">
+                        {r.customerName} - {r.phone}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        {new Date(r.reservationTime).toLocaleString("vi-VN")}
+                      </p>
+                      {r.note && (
+                        <p className="text-xs text-gray-500 mt-1 italic">
+                          Ghi chú: {r.note}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* icon Delete */}
+                    <button
+                      onClick={() => deleteReservation(r.id, r.customerName)}
+                      className="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition"
+                      title="Xoá đặt bàn"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
             </div>
 
             {/* BUTTONS */}
             <div className="mt-6 flex justify-between gap-3">
-              {/* <button
+              <button
                 onClick={() => {
                   setShowReservationsPopup(false);
                   setShowCreatePopup(true);
@@ -292,7 +353,7 @@ export default function ReservationPage() {
                 className="flex-1 bg-[#52796F] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#395B50] shadow transition"
               >
                 + Tạo mới
-              </button> */}
+              </button>
 
               <button
                 onClick={() => setShowReservationsPopup(false)}
@@ -360,20 +421,40 @@ export default function ReservationPage() {
               </div>
 
               {/* Time */}
-              <div>
-                <input
-                  type="datetime-local"
-                  min={getMinDateTime()}
-                  placeholder="Ngày và giờ đặt"
+              <div className="w-full">
+                <DatePicker
+                  selected={dateTime}
+                  onChange={(dt) => {
+                    setDateTime(dt);
+                    setForm({
+                      ...form,
+                      reservationTime: dt ? dt.toISOString() : "",
+                    });
+                  }}
+                  showTimeSelect
+                  timeIntervals={30}
+                  timeCaption="Giờ"
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  timeFormat="HH:mm"
                   className="
-                  w-full border border-[#D3DCD2] rounded-xl p-3 text-sm
-                  focus:ring-2 focus:ring-[#52796F] focus:border-[#52796F]
-                  bg-white shadow-inner
-                "
-                  onChange={(e) =>
-                    setForm({ ...form, reservationTime: e.target.value })
-                  }
+                    w-full border border-[#D3DCD2] rounded-xl p-3 text-sm
+                    focus:ring-2 focus:ring-[#52796F] focus:border-[#52796F]
+                    bg-white shadow-inner
+                  "
+                  placeholderText="Chọn ngày giờ"
                 />
+
+                {errors.reservationTime && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.reservationTime}
+                  </p>
+                )}
+
+                {errors.reservationTime && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.reservationTime}
+                  </p>
+                )}
               </div>
 
               {/* Note */}

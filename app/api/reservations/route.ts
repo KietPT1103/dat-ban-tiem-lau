@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     phone: data.phone,
     guestCount: data.guestCount,
     reservationTime: new Date(data.reservationTime),
-    note: data.note ?? "", 
+    note: data.note ?? "",
     createdAt: new Date(),
   });
 
@@ -84,9 +84,9 @@ export async function DELETE(req: Request) {
 
         if (!data.reservationTime?.seconds) return;
 
-        const resDate = new Date(data.reservationTime.seconds * 1000)
-          .toISOString()
-          .slice(0, 10);
+        const d = new Date(data.reservationTime.seconds * 1000);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        const resDate = d.toISOString().slice(0, 10);
 
         if (resDate === date) {
           batch.delete(doc.ref);
